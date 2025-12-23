@@ -1,9 +1,13 @@
 package com.millalemu.actadigitalinsaglobal
 
+import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,13 +15,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-// Borramos imports "outlined" conflictivos y usamos solo los filled básicos
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -25,10 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import java.io.File
-
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 
 // --- COLORES CORPORATIVOS ---
 val AzulInsa = Color(0xFF003399)
@@ -59,6 +60,7 @@ fun AppPrincipal() {
     val context = LocalContext.current
 
     if (pantallaActual == 2 && archivoParaVer != null) {
+        // Asegúrate de tener PdfPreviewScreen importado o en el mismo paquete
         PantallaPrevisualizacion(
             archivoPdf = archivoParaVer!!,
             onCerrar = { pantallaActual = 1 },
@@ -69,14 +71,14 @@ fun AppPrincipal() {
             bottomBar = {
                 NavigationBar(containerColor = Color.White) {
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.Add, "Nuevo") }, // Ícono estándar
+                        icon = { Icon(Icons.Default.Add, "Nuevo") },
                         label = { Text("Nueva Acta") },
                         selected = pantallaActual == 0,
                         onClick = { pantallaActual = 0 },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = AzulInsa, indicatorColor = AzulInsa.copy(alpha = 0.2f))
                     )
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.List, "Historial") }, // Ícono estándar
+                        icon = { Icon(Icons.Default.List, "Historial") },
                         label = { Text("Historial") },
                         selected = pantallaActual == 1,
                         onClick = { pantallaActual = 1 },
@@ -102,14 +104,14 @@ fun AppPrincipal() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class) // <--- ESTA LÍNEA ES LA CLAVE
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PantallaFormulario(onGuardado: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val db = AppDatabase.getDatabase(context)
 
-    // Estados
+    // Estados Generales
     var folio by remember { mutableStateOf("5193") }
     var registro by remember { mutableStateOf("") }
     var tipoServicio by remember { mutableStateOf("Instalación") }
@@ -134,12 +136,41 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
     var obsTecnica by remember { mutableStateOf("") }
     var capCilindro by remember { mutableStateOf("") }
 
-    // Firmas
+    // --- ESTADOS PARA FIRMAS ---
     var nomTecnico by remember { mutableStateOf("") }; var runTecnico by remember { mutableStateOf("") }
+    var firmaTecnico by remember { mutableStateOf<Bitmap?>(null) }
+
     var nomSuper by remember { mutableStateOf("") }; var runSuper by remember { mutableStateOf("") }
+    var firmaSupervisor by remember { mutableStateOf<Bitmap?>(null) }
+
     var nomJefe by remember { mutableStateOf("") }; var runJefe by remember { mutableStateOf("") }
+    var firmaJefe by remember { mutableStateOf<Bitmap?>(null) }
+
     var nomCliente by remember { mutableStateOf("") }; var runCliente by remember { mutableStateOf("") }
+    var firmaCliente by remember { mutableStateOf<Bitmap?>(null) }
+
     var obsEntrega by remember { mutableStateOf("") }
+
+    // Control del Diálogo de Firma
+    var mostrarDialogoFirma by remember { mutableStateOf(false) }
+    var quienFirmaActual by remember { mutableStateOf("") }
+
+    // --- LOGICA DIÁLOGO FLOTANTE ---
+    if (mostrarDialogoFirma) {
+        DialogoFirma(
+            titulo = "Firma de $quienFirmaActual",
+            onDismiss = { mostrarDialogoFirma = false },
+            onConfirm = { bitmap ->
+                when (quienFirmaActual) {
+                    "Técnico" -> firmaTecnico = bitmap
+                    "Supervisor" -> firmaSupervisor = bitmap
+                    "Jefe Mecánico" -> firmaJefe = bitmap
+                    "Cliente" -> firmaCliente = bitmap
+                }
+                mostrarDialogoFirma = false
+            }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -162,7 +193,6 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
                 }
                 Spacer(Modifier.height(10.dp))
 
-                // --- AQUÍ EL DROPDOWN MENU CORREGIDO ---
                 ExposedDropdownMenuBox(
                     expanded = expandidoServicio,
                     onExpandedChange = { expandidoServicio = !expandidoServicio }
@@ -197,7 +227,7 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
             }
         }
 
-// --- SECCIÓN 2: UNIDAD / MAQUINARIA ---
+        // --- SECCIÓN 2: UNIDAD / MAQUINARIA ---
         item {
             SeccionCard(titulo = "Datos de Unidad", icono = Icons.Default.Settings) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -233,35 +263,41 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
             }
         }
 
-        // --- SECCIÓN 4: RESPONSABLES ---
+        // --- SECCIÓN 4: RESPONSABLES Y FIRMAS (NUEVO) ---
         item {
             SeccionCard(titulo = "Firmas y Responsables", icono = Icons.Default.Person) {
-                Text("Técnico Encargado", style = MaterialTheme.typography.labelLarge, color = AzulInsa)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CampoTexto(value = nomTecnico, onValueChange = { nomTecnico = it }, label = "Nombre", icon = Icons.Default.Person, modifier = Modifier.weight(1f))
-                    CampoTexto(value = runTecnico, onValueChange = { runTecnico = it }, label = "RUN", icon = Icons.Default.Face, modifier = Modifier.weight(0.6f))
-                }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                Text("Supervisor INSA", style = MaterialTheme.typography.labelLarge, color = AzulInsa)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CampoTexto(value = nomSuper, onValueChange = { nomSuper = it }, label = "Nombre", icon = Icons.Default.Person, modifier = Modifier.weight(1f))
-                    CampoTexto(value = runSuper, onValueChange = { runSuper = it }, label = "RUN", icon = Icons.Default.Face, modifier = Modifier.weight(0.6f))
-                }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                ItemResponsable(
+                    titulo = "Técnico Encargado",
+                    nombre = nomTecnico, onNombreChange = { nomTecnico = it },
+                    run = runTecnico, onRunChange = { runTecnico = it },
+                    firmaBitmap = firmaTecnico,
+                    onClickFirma = { quienFirmaActual = "Técnico"; mostrarDialogoFirma = true }
+                )
 
-                Text("Jefe Mecánico", style = MaterialTheme.typography.labelLarge, color = AzulInsa)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CampoTexto(value = nomJefe, onValueChange = { nomJefe = it }, label = "Nombre", icon = Icons.Default.Person, modifier = Modifier.weight(1f))
-                    CampoTexto(value = runJefe, onValueChange = { runJefe = it }, label = "RUN", icon = Icons.Default.Face, modifier = Modifier.weight(0.6f))
-                }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                ItemResponsable(
+                    titulo = "Supervisor INSA",
+                    nombre = nomSuper, onNombreChange = { nomSuper = it },
+                    run = runSuper, onRunChange = { runSuper = it },
+                    firmaBitmap = firmaSupervisor,
+                    onClickFirma = { quienFirmaActual = "Supervisor"; mostrarDialogoFirma = true }
+                )
 
-                Text("Recepción Cliente", style = MaterialTheme.typography.labelLarge, color = AzulInsa)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CampoTexto(value = nomCliente, onValueChange = { nomCliente = it }, label = "Nombre", icon = Icons.Default.Person, modifier = Modifier.weight(1f))
-                    CampoTexto(value = runCliente, onValueChange = { runCliente = it }, label = "RUN", icon = Icons.Default.Face, modifier = Modifier.weight(0.6f))
-                }
+                ItemResponsable(
+                    titulo = "Jefe Mecánico",
+                    nombre = nomJefe, onNombreChange = { nomJefe = it },
+                    run = runJefe, onRunChange = { runJefe = it },
+                    firmaBitmap = firmaJefe,
+                    onClickFirma = { quienFirmaActual = "Jefe Mecánico"; mostrarDialogoFirma = true }
+                )
+
+                ItemResponsable(
+                    titulo = "Recepción Cliente",
+                    nombre = nomCliente, onNombreChange = { nomCliente = it },
+                    run = runCliente, onRunChange = { runCliente = it },
+                    firmaBitmap = firmaCliente,
+                    onClickFirma = { quienFirmaActual = "Cliente"; mostrarDialogoFirma = true }
+                )
             }
         }
 
@@ -282,16 +318,26 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
         item {
             Button(
                 onClick = {
+                    // Convertir Bitmaps a Base64
+                    val fTecStr = firmaTecnico?.let { bitmapToBase64(it) }
+                    val fSupStr = firmaSupervisor?.let { bitmapToBase64(it) }
+                    val fJefeStr = firmaJefe?.let { bitmapToBase64(it) }
+                    val fCliStr = firmaCliente?.let { bitmapToBase64(it) }
+
                     val acta = ActaEntity(
                         folio = folio, registro = registro, tipoServicio = tipoServicio,
                         tipoUnidad = tipoUnidad, patente = patente, mandante = mandante, obsLogisticas = obsLogistica,
                         marca = marca, modelo = modelo, horometro = horometro, pinFabricante = pinFabr,
                         lugarInst = lugarInst, fechaInst = fechaInst, nSistema = nSistema, nPrecinto = nPrecinto,
                         obsTecnicas = obsTecnica, capCilindro = capCilindro,
-                        nombreTecnico = nomTecnico, runTecnico = runTecnico,
-                        nombreSupervisor = nomSuper, runSupervisor = runSuper,
-                        nombreJefe = nomJefe, runJefe = runJefe,
-                        nombreCliente = nomCliente, runCliente = runCliente, obsEntrega = obsEntrega
+
+                        // Datos Responsables
+                        nombreTecnico = nomTecnico, runTecnico = runTecnico, firmaTecnicoB64 = fTecStr,
+                        nombreSupervisor = nomSuper, runSupervisor = runSuper, firmaSupervisorB64 = fSupStr,
+                        nombreJefe = nomJefe, runJefe = runJefe, firmaJefeB64 = fJefeStr,
+                        nombreCliente = nomCliente, runCliente = runCliente, firmaClienteB64 = fCliStr,
+
+                        obsEntrega = obsEntrega
                     )
                     scope.launch {
                         db.actaDao().insertar(acta)
@@ -311,7 +357,7 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
     }
 }
 
-// --- COMPONENTES VISUALES REUTILIZABLES ---
+// --- COMPONENTES VISUALES ---
 
 @Composable
 fun SeccionCard(titulo: String, icono: ImageVector, content: @Composable ColumnScope.() -> Unit) {
@@ -360,6 +406,74 @@ fun CampoTexto(
 }
 
 @Composable
+fun ItemResponsable(
+    titulo: String,
+    nombre: String,
+    onNombreChange: (String) -> Unit,
+    run: String,
+    onRunChange: (String) -> Unit,
+    firmaBitmap: Bitmap?,
+    onClickFirma: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(titulo, style = MaterialTheme.typography.labelLarge, color = AzulInsa)
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            CampoTexto(
+                value = nombre,
+                onValueChange = onNombreChange,
+                label = "Nombre",
+                icon = Icons.Default.Person,
+                modifier = Modifier.weight(1f)
+            )
+            CampoTexto(
+                value = run,
+                onValueChange = onRunChange,
+                label = "RUN",
+                icon = Icons.Default.Face,
+                modifier = Modifier.weight(0.6f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Zona de la firma
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .clickable { onClickFirma() },
+            colors = CardDefaults.cardColors(containerColor = FondoGris),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, Color.LightGray)
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                if (firmaBitmap != null) {
+                    Image(
+                        bitmap = firmaBitmap.asImageBitmap(),
+                        contentDescription = "Firma",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                    Text(
+                        "Toca para cambiar",
+                        color = Color.Gray.copy(alpha = 0.5f),
+                        fontSize = 10.sp,
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(4.dp)
+                    )
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Create, contentDescription = null, tint = AzulInsa)
+                        Text("Tocar para firmar", color = AzulInsa)
+                    }
+                }
+            }
+        }
+        HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
+    }
+}
+
+@Composable
 fun PantallaHistorial(onVerPdf: (ActaEntity) -> Unit) {
     val context = LocalContext.current
     val db = AppDatabase.getDatabase(context)
@@ -392,7 +506,6 @@ fun PantallaHistorial(onVerPdf: (ActaEntity) -> Unit) {
                             onClick = { onVerPdf(acta) },
                             colors = IconButtonDefaults.iconButtonColors(contentColor = NaranjaInsa)
                         ) {
-                            // Reemplazado Visibility por Info (Standard) o Search
                             Icon(Icons.Default.Info, contentDescription = "Ver PDF")
                         }
                     }

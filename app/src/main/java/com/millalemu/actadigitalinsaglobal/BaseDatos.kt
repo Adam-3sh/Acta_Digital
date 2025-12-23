@@ -33,18 +33,21 @@ data class ActaEntity(
     val obsTecnicas: String,
     val capCilindro: String,
 
-    // Firmas (Nombre y RUN de cada uno)
     val nombreTecnico: String,
     val runTecnico: String,
+    val firmaTecnicoB64: String? = null, // <--- NUEVO
 
     val nombreSupervisor: String,
     val runSupervisor: String,
+    val firmaSupervisorB64: String? = null, // <--- NUEVO
 
     val nombreJefe: String,
     val runJefe: String,
+    val firmaJefeB64: String? = null, // <--- NUEVO
 
     val nombreCliente: String,
     val runCliente: String,
+    val firmaClienteB64: String? = null, // <--- NUEVO
 
     // Footer
     val obsEntrega: String
