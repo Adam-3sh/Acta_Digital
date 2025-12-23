@@ -18,7 +18,6 @@ import kotlin.math.min
 object PdfUtil {
 
     fun generarPdf(context: Context, acta: ActaEntity): File {
-        // A4 estándar: 595 x 842 puntos
         val pageHeight = 842
         val pageWidth = 595
         val pdfDocument = PdfDocument()
@@ -36,10 +35,26 @@ object PdfUtil {
         val textPaintValor = TextPaint(paintTexto)
 
         // --- DIBUJO ---
-        // 1. Logo
+        // 1. Logo (CORREGIDO: ESCALADO PROPORCIONAL)
         val bitmapLogo = BitmapFactory.decodeResource(context.resources, R.drawable.logo_fimal_1)
         if (bitmapLogo != null) {
-            val bitmapEscalado = android.graphics.Bitmap.createScaledBitmap(bitmapLogo, 60, 60, false)
+            // Definimos el espacio máximo que queremos que ocupe
+            val maxAlto = 60f
+            val maxAncho = 150f // Para que no choque con el título central
+
+            val ratio = bitmapLogo.width.toFloat() / bitmapLogo.height.toFloat()
+
+            // Calculamos dimensiones manteniendo proporción
+            var altoFinal = maxAlto
+            var anchoFinal = maxAlto * ratio
+
+            // Si es muy ancho, lo limitamos por el ancho
+            if (anchoFinal > maxAncho) {
+                anchoFinal = maxAncho
+                altoFinal = maxAncho / ratio
+            }
+
+            val bitmapEscalado = android.graphics.Bitmap.createScaledBitmap(bitmapLogo, anchoFinal.toInt(), altoFinal.toInt(), true)
             canvas.drawBitmap(bitmapEscalado, 40f, 30f, null)
         }
 
@@ -74,7 +89,7 @@ object PdfUtil {
             xCh += 130f
         }
 
-        // 4. Campos Inteligentes
+        // 4. Campos Inteligentes (Pequeños)
         fun dibujarCampo(titulo: String, valor: String, x: Float, yPos: Float, anchoTotal: Float) {
             val anchoTitulo = anchoTotal * 0.35f
             val anchoValor = anchoTotal - anchoTitulo
@@ -105,14 +120,35 @@ object PdfUtil {
         val anchoCol = 250f
         val xDer = 300f
 
+        // Datos básicos
         dibujarCampo("Tipo de unidad:", acta.tipoUnidad, 40f, y, anchoCol); dibujarCampo("Marca:", acta.marca, xDer, y, anchoCol)
         y+=20
         dibujarCampo("Patente/Sigla:", acta.patente, 40f, y, anchoCol); dibujarCampo("Modelo:", acta.modelo, xDer, y, anchoCol)
         y+=20
         dibujarCampo("Mandante:", acta.mandante, 40f, y, anchoCol); dibujarCampo("Horómetro:", acta.horometro, xDer, y, anchoCol)
         y+=20
-        dibujarCampo("Obs. Logísticas:", acta.obsLogisticas, 40f, y, anchoCol); dibujarCampo("Nº Pin Fabr:", acta.pinFabricante, xDer, y, anchoCol)
-        y+=30
+        dibujarCampo("Nº Pin Fabr:", acta.pinFabricante, 40f, y, anchoCol)
+
+        // --- OBS LOGÍSTICAS (CAJA GRANDE) ---
+        y+=25
+        canvas.drawRect(40f, y, 550f, y+15, paintFondoTitulo)
+        canvas.drawRect(40f, y, 550f, y+15, paintBorde)
+        canvas.drawText("CONFIGURACIÓN SISTEMA / OBS. LOGÍSTICAS:", 45f, y+10, paintBold)
+        y += 15
+        val altoCajaLog = 35f
+        canvas.drawRect(40f, y, 550f, y+altoCajaLog, paintBorde)
+
+        val logPaint = TextPaint(paintTexto)
+        if (logPaint.measureText(acta.obsLogisticas) > 500) {
+            val layoutLog = StaticLayout.Builder.obtain(acta.obsLogisticas, 0, acta.obsLogisticas.length, logPaint, 500)
+                .setAlignment(Layout.Alignment.ALIGN_NORMAL).build()
+            canvas.save(); canvas.translate(45f, y+5); layoutLog.draw(canvas); canvas.restore()
+        } else {
+            canvas.drawText(acta.obsLogisticas, 45f, y+15, paintTexto)
+        }
+        y += altoCajaLog + 10
+        // ------------------------------------
+
         dibujarCampo("Lugar Instalación:", acta.lugarInst, 40f, y, anchoCol); dibujarCampo("Fecha Inst:", acta.fechaInst, xDer, y, anchoCol)
         y+=20
         dibujarCampo("Nº Sist AFSS-CF:", acta.nSistema, 40f, y, anchoCol); dibujarCampo("Nº Precinto:", acta.nPrecinto, xDer, y, anchoCol)
@@ -137,9 +173,8 @@ object PdfUtil {
         canvas.save(); canvas.translate(40f, y); layoutCuerpo.draw(canvas); canvas.restore()
         y += layoutCuerpo.height + 15f
 
-        // 6. FIRMAS (AHORA MÁS GRANDES Y ESPACIOSAS)
+        // 6. FIRMAS (Sin líneas, solo imagen)
         val anchoFirmaCaja = 250f
-        // CAMBIO: Aumentamos altura de 80 a 140 para que quepa una firma grande
         val altoFirmaCaja = 140f
 
         fun dibujarCajaFirma(titulo: String, nombre: String, run: String, firmaB64: String?, x: Float, yPos: Float) {
@@ -147,25 +182,20 @@ object PdfUtil {
             canvas.drawRect(x, yPos, x + anchoFirmaCaja, yPos + altoFirmaCaja, paintBorde)
             canvas.drawRect(x, yPos, x + anchoFirmaCaja, yPos + 15, paintFondoTitulo)
 
-            // Textos informativos (Los pegamos arriba)
+            // Textos informativos
             canvas.drawText(titulo, x + 5, yPos + 10, paintBold)
-            canvas.drawText("Nombre: $nombre", x + 5, yPos + 25, paintTexto) // Subimos un poco
-            canvas.drawText("RUN: $run", x + 5, yPos + 35, paintTexto)       // Subimos un poco
+            canvas.drawText("Nombre: $nombre", x + 5, yPos + 25, paintTexto)
+            canvas.drawText("RUN: $run", x + 5, yPos + 35, paintTexto)
 
-            // Línea de firma (La bajamos casi al final de la caja)
+            // Posición base donde iría la firma
             val yLinea = yPos + 120
-            canvas.drawText("Firma: _________________", x + 5, yLinea, paintTexto)
 
-            // --- DIBUJAR LA FIRMA ---
             if (firmaB64 != null) {
                 val bitmapFirma = base64ToBitmap(firmaB64)
                 if (bitmapFirma != null) {
-                    // 1. Espacio mucho más generoso para la firma
-                    // Ahora permitimos hasta 220 de ancho y 80 de alto
                     val maxFirmaWidth = 220f
-                    val maxFirmaHeight = 80f // Bastante altura
+                    val maxFirmaHeight = 80f
 
-                    // 2. Escalar proporcionalmente
                     val ratioX = maxFirmaWidth / bitmapFirma.width
                     val ratioY = maxFirmaHeight / bitmapFirma.height
                     val finalScale = min(ratioX, ratioY)
@@ -175,12 +205,9 @@ object PdfUtil {
 
                     val firmaEscalada = android.graphics.Bitmap.createScaledBitmap(bitmapFirma, finalWidth, finalHeight, true)
 
-                    // 3. Posicionar: Centrada horizontalmente, y pegada a la línea de firma
-                    // Calculamos para que el *fondo* de la firma toque la línea
                     val xPosFirma = x + (anchoFirmaCaja - finalWidth) / 2
-                    val yPosFirma = yLinea - finalHeight + 5 // +5 para que pise un poquito la línea (efecto realista)
+                    val yPosFirma = yLinea - finalHeight + 5
 
-                    // Dibujamos
                     canvas.drawBitmap(firmaEscalada, xPosFirma, yPosFirma, null)
                 }
             }
@@ -189,19 +216,16 @@ object PdfUtil {
         dibujarCajaFirma("Técnico Encargado de la Instalación", acta.nombreTecnico, acta.runTecnico, acta.firmaTecnicoB64, 40f, y)
         dibujarCajaFirma("Aprobación Supervisor INSA", acta.nombreSupervisor, acta.runSupervisor, acta.firmaSupervisorB64, xDer, y)
 
-        y += altoFirmaCaja + 10 // Espacio entre filas de firmas
+        y += altoFirmaCaja + 10
 
         dibujarCajaFirma("Aprobación Jefe Mecánico", acta.nombreJefe, acta.runJefe, acta.firmaJefeB64, 40f, y)
         dibujarCajaFirma("Responsable Recepción Cliente", acta.nombreCliente, acta.runCliente, acta.firmaClienteB64, xDer, y)
 
-        // 7. Obs Final y Footer
+        // 7. Obs Final
         y += altoFirmaCaja + 20
 
-        // Verificación simple para no salirnos de la hoja (aunque suele sobrar espacio)
         if (y > pageHeight - 100) {
             pdfDocument.finishPage(page)
-            // Aquí se podría crear página 2, pero para este caso asumimos que cabe
-            // O simplemente lo dibujamos al final apretado.
         }
 
         canvas.drawRect(40f, y, 550f, y+15, paintFondoTitulo)
