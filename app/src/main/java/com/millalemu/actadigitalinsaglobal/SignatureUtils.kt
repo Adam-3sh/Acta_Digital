@@ -2,6 +2,7 @@ package com.millalemu.actadigitalinsaglobal
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.RectF
 import android.util.Base64
 import android.view.MotionEvent
 import androidx.compose.foundation.Canvas
@@ -10,8 +11,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +24,7 @@ import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import java.io.ByteArrayOutputStream
+import kotlin.math.max
 
 // Función para convertir Bitmap a String Base64 (Para guardar en BD)
 fun bitmapToBase64(bitmap: Bitmap): String {
@@ -84,12 +86,10 @@ fun DialogoFirma(
                                         path.lineTo(motionEvent.x, motionEvent.y)
                                         triggerDraw = System.currentTimeMillis()
                                     }
-                                    // Se podrían manejar más eventos, pero con estos basta
                                 }
                                 true
                             }
                     ) {
-                        // Usamos la variable para recomponer
                         triggerDraw.let {
                             drawPath(
                                 path = path,
@@ -99,7 +99,6 @@ fun DialogoFirma(
                         }
                     }
 
-                    // Texto de ayuda fondo
                     if (path.isEmpty) {
                         Text(
                             "Firme aquí con el dedo",
@@ -124,19 +123,42 @@ fun DialogoFirma(
 
                     Button(
                         onClick = {
-                            // Crear Bitmap desde el Path
-                            val bitmap = Bitmap.createBitmap(500, 300, Bitmap.Config.ARGB_8888)
+                            if (path.isEmpty) {
+                                onDismiss() // Si no dibujó nada, cerramos
+                                return@Button
+                            }
+
+                            // 1. Calcular los límites exactos de lo que dibujó el usuario
+                            val androidPath = path.asAndroidPath()
+                            val bounds = RectF()
+                            androidPath.computeBounds(bounds, true)
+
+                            // 2. Darle un pequeño margen (padding) para que no quede pegado al borde
+                            val padding = 20
+                            val width = (bounds.width() + padding * 2).toInt()
+                            val height = (bounds.height() + padding * 2).toInt()
+
+                            // Seguridad: evitar crear bitmaps de tamaño 0 o negativo
+                            val safeWidth = max(width, 100)
+                            val safeHeight = max(height, 100)
+
+                            val bitmap = Bitmap.createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
                             val canvas = android.graphics.Canvas(bitmap)
                             canvas.drawColor(android.graphics.Color.WHITE) // Fondo blanco
+
+                            // 3. Mover el canvas para que el dibujo quede centrado (restamos el offset inicial)
+                            canvas.translate(-bounds.left + padding, -bounds.top + padding)
 
                             val paint = android.graphics.Paint().apply {
                                 color = android.graphics.Color.BLACK
                                 style = android.graphics.Paint.Style.STROKE
                                 strokeWidth = 5f
                                 isAntiAlias = true
+                                strokeCap = android.graphics.Paint.Cap.ROUND
+                                strokeJoin = android.graphics.Paint.Join.ROUND
                             }
-                            // Convertir Compose Path a Android Path
-                            canvas.drawPath(path.asAndroidPath(), paint)
+
+                            canvas.drawPath(androidPath, paint)
 
                             onConfirm(bitmap)
                         },

@@ -441,7 +441,7 @@ fun ItemResponsable(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(120.dp)
+                .height(100.dp)
                 .clickable { onClickFirma() },
             colors = CardDefaults.cardColors(containerColor = FondoGris),
             shape = RoundedCornerShape(8.dp),
