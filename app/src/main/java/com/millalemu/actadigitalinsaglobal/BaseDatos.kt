@@ -10,13 +10,14 @@ data class ActaEntity(
     val folio: String,
     val registro: String,
 
-    // Checkboxes (guardaremos cual seleccionó, ej: "Instalación")
+    // Checkboxes
     val tipoServicio: String,
 
     // Datos Maquinaria (Columna Izq)
     val tipoUnidad: String,
     val patente: String,
     val mandante: String,
+    // RUT Mandante ELIMINADO
     val obsLogisticas: String,
 
     // Datos Maquinaria (Columna Der)
@@ -33,21 +34,22 @@ data class ActaEntity(
     val obsTecnicas: String,
     val capCilindro: String,
 
+    // Firmas
     val nombreTecnico: String,
     val runTecnico: String,
-    val firmaTecnicoB64: String? = null, // <--- NUEVO
+    val firmaTecnicoB64: String? = null,
 
     val nombreSupervisor: String,
     val runSupervisor: String,
-    val firmaSupervisorB64: String? = null, // <--- NUEVO
+    val firmaSupervisorB64: String? = null,
 
     val nombreJefe: String,
     val runJefe: String,
-    val firmaJefeB64: String? = null, // <--- NUEVO
+    val firmaJefeB64: String? = null,
 
     val nombreCliente: String,
     val runCliente: String,
-    val firmaClienteB64: String? = null, // <--- NUEVO
+    val firmaClienteB64: String? = null,
 
     // Footer
     val obsEntrega: String
@@ -65,7 +67,7 @@ interface ActaDao {
     suspend fun borrar(acta: ActaEntity)
 }
 
-@Database(entities = [ActaEntity::class], version = 2, exportSchema = false)
+@Database(entities = [ActaEntity::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun actaDao(): ActaDao
 
@@ -78,8 +80,9 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "actas_db_v2" // Cambié el nombre para forzar una db nueva limpia
-                ).fallbackToDestructiveMigration()
+                    "actas_db_v2"
+                )
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

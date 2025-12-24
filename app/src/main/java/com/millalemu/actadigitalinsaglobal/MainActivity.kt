@@ -2,6 +2,7 @@ package com.millalemu.actadigitalinsaglobal
 
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
@@ -125,13 +126,12 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
     val listaCapacidades = listOf("6 Litros", "9 Litros", "12 Litros", "50 Litros")
 
     val listaObsAccion = listOf("Instalación", "Mantención")
-    val listaObsSistema = listOf("Sistema A.F.S.S de Cabina", "Sistema de Motor", "Sistema de Supresión Externo")
-
-    // CAMBIO 1: Corregido "Eléctrico" por "Electrónico"
+    // CAMBIO: Nombres de sistemas actualizados
+    val listaObsSistema = listOf("Sistema A.F.S.S de Cabina", "Sistema A.F.S.S de Motor", "Sistema de Supresión Externo")
     val listaObsTipo = listOf("Electrónico", "Neumático")
 
     // --- ESTADOS ---
-    var folio by remember { mutableStateOf("5193") }
+    var folio by remember { mutableStateOf("") }
     var registro by remember { mutableStateOf("") }
 
     var tipoServicio by remember { mutableStateOf(listaServicios[0]) }
@@ -149,12 +149,22 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
     var obsSistema by remember { mutableStateOf(listaObsSistema[0]) }
     var obsTipo by remember { mutableStateOf(listaObsTipo[0]) }
 
+    // LÓGICA POST VENTA
+    LaunchedEffect(tipoServicio) {
+        if (tipoServicio == "Post venta") {
+            obsAccion = "Revisión"
+        } else {
+            if (obsAccion == "Revisión") {
+                obsAccion = listaObsAccion[0]
+            }
+        }
+    }
+
     var pinFabr by remember { mutableStateOf("") }
 
     // Instalación
     var lugarInst by remember { mutableStateOf("") }
 
-    // CAMBIO 2: Fecha automática y variable para el estado
     val fechaHoy = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
     var fechaInst by remember { mutableStateOf(fechaHoy) }
 
@@ -245,6 +255,7 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
                     CampoTexto(value = patente, onValueChange = { patente = it }, label = "Patente / Sigla", icon = Icons.Default.AccountBox, modifier = Modifier.weight(1f))
                     CampoTexto(value = horometro, onValueChange = { horometro = it }, label = "Horómetro", icon = Icons.Default.DateRange, modifier = Modifier.weight(1f), keyboardType = KeyboardType.Number)
                 }
+
                 CampoTexto(value = mandante, onValueChange = { mandante = it }, label = "Mandante / Contratista", icon = Icons.Default.Home)
 
                 // Módulo Obs Logísticas
@@ -256,12 +267,24 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        DropdownInput(
-                            label = "Acción",
-                            opciones = listaObsAccion,
-                            seleccionado = obsAccion,
-                            onSeleccionado = { obsAccion = it }
-                        )
+
+                        if (obsAccion == "Revisión") {
+                            CampoTexto(
+                                value = obsAccion,
+                                onValueChange = {},
+                                label = "Acción (Automático)",
+                                icon = Icons.Default.Check,
+                                readOnly = true
+                            )
+                        } else {
+                            DropdownInput(
+                                label = "Acción",
+                                opciones = listaObsAccion,
+                                seleccionado = obsAccion,
+                                onSeleccionado = { obsAccion = it }
+                            )
+                        }
+
                         DropdownInput(
                             label = "Sistema",
                             opciones = listaObsSistema,
@@ -294,10 +317,9 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
                 CampoTexto(value = lugarInst, onValueChange = { lugarInst = it }, label = "Lugar Instalación", icon = Icons.Default.Place)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // CAMBIO 3: Campo de fecha en solo lectura (readOnly = true)
                     CampoTexto(
                         value = fechaInst,
-                        onValueChange = {}, // No permite cambios
+                        onValueChange = {},
                         label = "Fecha",
                         icon = Icons.Default.DateRange,
                         modifier = Modifier.weight(1f),
@@ -317,7 +339,15 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
                     CampoTexto(value = nSistema, onValueChange = { nSistema = it }, label = "Nº Sist. AFSS", icon = Icons.Default.Info, modifier = Modifier.weight(1f))
                     CampoTexto(value = nPrecinto, onValueChange = { nPrecinto = it }, label = "Nº Precinto", icon = Icons.Default.Lock, modifier = Modifier.weight(1f))
                 }
-                CampoTexto(value = obsTecnica, onValueChange = { obsTecnica = it }, label = "Obs. Técnicas", icon = Icons.Default.Edit)
+
+                CampoTexto(
+                    value = obsTecnica,
+                    onValueChange = { obsTecnica = it },
+                    label = "Obs. Técnicas",
+                    icon = Icons.Default.Edit,
+                    singleLine = false,
+                    minLines = 3
+                )
             }
         }
 
@@ -348,6 +378,26 @@ fun PantallaFormulario(onGuardado: () -> Unit) {
         item {
             Button(
                 onClick = {
+                    val camposVacios = mutableListOf<String>()
+
+                    if (folio.isBlank()) camposVacios.add("Folio")
+                    if (registro.isBlank()) camposVacios.add("Registro")
+                    if (marca.isBlank()) camposVacios.add("Marca")
+                    if (modelo.isBlank()) camposVacios.add("Modelo")
+                    if (patente.isBlank()) camposVacios.add("Patente")
+                    if (mandante.isBlank()) camposVacios.add("Mandante")
+                    if (horometro.isBlank()) camposVacios.add("Horómetro")
+                    if (pinFabr.isBlank()) camposVacios.add("PIN Fabr.")
+                    if (lugarInst.isBlank()) camposVacios.add("Lugar Instalación")
+                    if (nSistema.isBlank()) camposVacios.add("Nº Sist. AFSS")
+                    if (nPrecinto.isBlank()) camposVacios.add("Nº Precinto")
+                    if (obsTecnica.isBlank()) camposVacios.add("Obs. Técnicas")
+
+                    if (camposVacios.isNotEmpty()) {
+                        Toast.makeText(context, "Falta completar: ${camposVacios.joinToString(", ")}", Toast.LENGTH_LONG).show()
+                        return@Button
+                    }
+
                     val fTecStr = firmaTecnico?.let { bitmapToBase64(it) }
                     val fSupStr = firmaSupervisor?.let { bitmapToBase64(it) }
                     val fJefeStr = firmaJefe?.let { bitmapToBase64(it) }
@@ -435,12 +485,16 @@ fun CampoTexto(
     icon: ImageVector,
     modifier: Modifier = Modifier,
     keyboardType: KeyboardType = KeyboardType.Text,
-    readOnly: Boolean = false // CAMBIO 4: Soporte para modo solo lectura
+    readOnly: Boolean = false,
+    singleLine: Boolean = true,
+    minLines: Int = 1
 ) {
     OutlinedTextField(
         value = value, onValueChange = onValueChange, label = { Text(label) },
         leadingIcon = { Icon(icon, contentDescription = null, tint = Color.Gray) },
-        modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), singleLine = true,
+        modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
+        singleLine = singleLine,
+        minLines = minLines,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AzulInsa, focusedLabelColor = AzulInsa, unfocusedBorderColor = Color.LightGray),
         readOnly = readOnly
@@ -451,10 +505,10 @@ fun CampoTexto(
 fun ItemResponsable(titulo: String, nombre: String, onNombreChange: (String) -> Unit, run: String, onRunChange: (String) -> Unit, firmaBitmap: Bitmap?, onClickFirma: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(titulo, style = MaterialTheme.typography.labelLarge, color = AzulInsa)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            CampoTexto(value = nombre, onValueChange = onNombreChange, label = "Nombre", icon = Icons.Default.Person, modifier = Modifier.weight(1f))
-            CampoTexto(value = run, onValueChange = onRunChange, label = "RUN", icon = Icons.Default.Face, modifier = Modifier.weight(0.6f))
-        }
+        Spacer(modifier = Modifier.height(8.dp))
+        CampoTexto(value = nombre, onValueChange = onNombreChange, label = "Nombre", icon = Icons.Default.Person)
+        Spacer(modifier = Modifier.height(8.dp))
+        CampoTexto(value = run, onValueChange = onRunChange, label = "RUN", icon = Icons.Default.Face)
         Spacer(modifier = Modifier.height(8.dp))
         Card(
             modifier = Modifier.fillMaxWidth().height(100.dp).clickable { onClickFirma() },

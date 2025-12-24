@@ -35,25 +35,18 @@ object PdfUtil {
         val textPaintValor = TextPaint(paintTexto)
 
         // --- DIBUJO ---
-        // 1. Logo (CORREGIDO: ESCALADO PROPORCIONAL)
+        // 1. Logo
         val bitmapLogo = BitmapFactory.decodeResource(context.resources, R.drawable.logo_fimal_1)
         if (bitmapLogo != null) {
-            // Definimos el espacio máximo que queremos que ocupe
             val maxAlto = 60f
-            val maxAncho = 150f // Para que no choque con el título central
-
+            val maxAncho = 150f
             val ratio = bitmapLogo.width.toFloat() / bitmapLogo.height.toFloat()
-
-            // Calculamos dimensiones manteniendo proporción
             var altoFinal = maxAlto
             var anchoFinal = maxAlto * ratio
-
-            // Si es muy ancho, lo limitamos por el ancho
             if (anchoFinal > maxAncho) {
                 anchoFinal = maxAncho
                 altoFinal = maxAncho / ratio
             }
-
             val bitmapEscalado = android.graphics.Bitmap.createScaledBitmap(bitmapLogo, anchoFinal.toInt(), altoFinal.toInt(), true)
             canvas.drawBitmap(bitmapEscalado, 40f, 30f, null)
         }
@@ -89,7 +82,7 @@ object PdfUtil {
             xCh += 130f
         }
 
-        // 4. Campos Inteligentes (Pequeños)
+        // 4. Campos Inteligentes
         fun dibujarCampo(titulo: String, valor: String, x: Float, yPos: Float, anchoTotal: Float) {
             val anchoTitulo = anchoTotal * 0.35f
             val anchoValor = anchoTotal - anchoTitulo
@@ -119,6 +112,7 @@ object PdfUtil {
         y = 130f
         val anchoCol = 250f
         val xDer = 300f
+        val anchoFull = 510f
 
         // Datos básicos
         dibujarCampo("Tipo de unidad:", acta.tipoUnidad, 40f, y, anchoCol); dibujarCampo("Marca:", acta.marca, xDer, y, anchoCol)
@@ -127,36 +121,38 @@ object PdfUtil {
         y+=20
         dibujarCampo("Mandante:", acta.mandante, 40f, y, anchoCol); dibujarCampo("Horómetro:", acta.horometro, xDer, y, anchoCol)
         y+=20
-        dibujarCampo("Nº Pin Fabr:", acta.pinFabricante, 40f, y, anchoCol)
+        // CAMBIO: Cap. Cilindro y Pin Fabr en la misma fila para liberar espacio abajo
+        dibujarCampo("Nº Pin Fabr:", acta.pinFabricante, 40f, y, anchoCol); dibujarCampo("Cap. Cilindro:", acta.capCilindro, xDer, y, anchoCol)
 
-        // --- OBS LOGÍSTICAS (CAJA GRANDE) ---
         y+=25
-        canvas.drawRect(40f, y, 550f, y+15, paintFondoTitulo)
-        canvas.drawRect(40f, y, 550f, y+15, paintBorde)
-        canvas.drawText("CONFIGURACIÓN SISTEMA / OBS. LOGÍSTICAS:", 45f, y+10, paintBold)
-        y += 15
-        val altoCajaLog = 35f
-        canvas.drawRect(40f, y, 550f, y+altoCajaLog, paintBorde)
+        // CAMBIO: Obs Logísticas en fila completa (anchoFull)
+        dibujarCampo("Obs. Logísticas:", acta.obsLogisticas, 40f, y, anchoFull)
 
-        val logPaint = TextPaint(paintTexto)
-        if (logPaint.measureText(acta.obsLogisticas) > 500) {
-            val layoutLog = StaticLayout.Builder.obtain(acta.obsLogisticas, 0, acta.obsLogisticas.length, logPaint, 500)
-                .setAlignment(Layout.Alignment.ALIGN_NORMAL).build()
-            canvas.save(); canvas.translate(45f, y+5); layoutLog.draw(canvas); canvas.restore()
-        } else {
-            canvas.drawText(acta.obsLogisticas, 45f, y+15, paintTexto)
-        }
-        y += altoCajaLog + 10
-        // ------------------------------------
-
+        y+=25
         dibujarCampo("Lugar Instalación:", acta.lugarInst, 40f, y, anchoCol); dibujarCampo("Fecha Inst:", acta.fechaInst, xDer, y, anchoCol)
         y+=20
         dibujarCampo("Nº Sist AFSS-CF:", acta.nSistema, 40f, y, anchoCol); dibujarCampo("Nº Precinto:", acta.nPrecinto, xDer, y, anchoCol)
-        y+=20
-        dibujarCampo("Obs. Técnicas:", acta.obsTecnicas, 40f, y, anchoCol); dibujarCampo("Cap. Cilindro:", acta.capCilindro, xDer, y, anchoCol)
+
+        // --- OBS TÉCNICAS (CAJA GRANDE) ---
+        y+=25
+        canvas.drawRect(40f, y, 550f, y+15, paintFondoTitulo)
+        canvas.drawRect(40f, y, 550f, y+15, paintBorde)
+        canvas.drawText("OBSERVACIONES TÉCNICAS:", 45f, y+10, paintBold)
+        y += 15
+        val altoCajaTec = 45f
+        canvas.drawRect(40f, y, 550f, y+altoCajaTec, paintBorde)
+
+        val tecPaint = TextPaint(paintTexto)
+        if (tecPaint.measureText(acta.obsTecnicas) > 500) {
+            val layoutTec = StaticLayout.Builder.obtain(acta.obsTecnicas, 0, acta.obsTecnicas.length, tecPaint, 500)
+                .setAlignment(Layout.Alignment.ALIGN_NORMAL).build()
+            canvas.save(); canvas.translate(45f, y+5); layoutTec.draw(canvas); canvas.restore()
+        } else {
+            canvas.drawText(acta.obsTecnicas, 45f, y+15, paintTexto)
+        }
+        y += altoCajaTec + 15
 
         // 5. Texto Legal
-        y += 30f
         val textoNegrita = "Se deja constancia que el sistema AFSS-CF para extinción de incendios, instalado en maquinaria identificada precedentemente:"
         val textoCuerpo = "Cuenta con agente extintor Cold Fire, multipropósito para fuegos clases A, B, C, D y K, fabricado en los Estados Unidos de América, debidamente certificado como: agente No toxico bajo SGS 203697-10/23/97, ingesta oral y ocular SGS 202536-02-08/16/96, pruebas de toxicidad acuática por USTC-11/03/93, agente anticorrosivo SGS 409277-11/19/96, agente biodegradable SGS 203408-2-04/23/97, certificaciones CESMEC, EPA-SNAP-USDA-LISTING, UL report wetting agent (2N75), US Foresty 5162 11/07/03. Reconocimiento de Green Seal.\n" +
                 "Que la empresa INSA, responsable de la instalación, se encuentra debidamente certificada y con su certificación al día, bajo el decreto supremo 44 (DS44).\n" +
@@ -171,30 +167,27 @@ object PdfUtil {
         y += layoutNegrita.height + 5f
         val layoutCuerpo = StaticLayout.Builder.obtain(textoCuerpo, 0, textoCuerpo.length, textPaintNormal, anchoTexto).setAlignment(Layout.Alignment.ALIGN_NORMAL).setLineSpacing(0f, 1.0f).build()
         canvas.save(); canvas.translate(40f, y); layoutCuerpo.draw(canvas); canvas.restore()
-        y += layoutCuerpo.height + 15f
+        y += layoutCuerpo.height + 10f
 
-        // 6. FIRMAS (Sin líneas, solo imagen)
+        // 6. FIRMAS
         val anchoFirmaCaja = 250f
-        val altoFirmaCaja = 140f
+        val altoFirmaCaja = 130f
 
         fun dibujarCajaFirma(titulo: String, nombre: String, run: String, firmaB64: String?, x: Float, yPos: Float) {
-            // Fondo y borde
             canvas.drawRect(x, yPos, x + anchoFirmaCaja, yPos + altoFirmaCaja, paintBorde)
             canvas.drawRect(x, yPos, x + anchoFirmaCaja, yPos + 15, paintFondoTitulo)
 
-            // Textos informativos
             canvas.drawText(titulo, x + 5, yPos + 10, paintBold)
             canvas.drawText("Nombre: $nombre", x + 5, yPos + 25, paintTexto)
             canvas.drawText("RUN: $run", x + 5, yPos + 35, paintTexto)
 
-            // Posición base donde iría la firma
-            val yLinea = yPos + 120
+            val yLinea = yPos + 110
 
             if (firmaB64 != null) {
                 val bitmapFirma = base64ToBitmap(firmaB64)
                 if (bitmapFirma != null) {
                     val maxFirmaWidth = 220f
-                    val maxFirmaHeight = 80f
+                    val maxFirmaHeight = 70f
 
                     val ratioX = maxFirmaWidth / bitmapFirma.width
                     val ratioY = maxFirmaHeight / bitmapFirma.height
@@ -216,23 +209,19 @@ object PdfUtil {
         dibujarCajaFirma("Técnico Encargado de la Instalación", acta.nombreTecnico, acta.runTecnico, acta.firmaTecnicoB64, 40f, y)
         dibujarCajaFirma("Aprobación Supervisor INSA", acta.nombreSupervisor, acta.runSupervisor, acta.firmaSupervisorB64, xDer, y)
 
-        y += altoFirmaCaja + 10
+        y += altoFirmaCaja + 5
 
         dibujarCajaFirma("Aprobación Jefe Mecánico", acta.nombreJefe, acta.runJefe, acta.firmaJefeB64, 40f, y)
         dibujarCajaFirma("Responsable Recepción Cliente", acta.nombreCliente, acta.runCliente, acta.firmaClienteB64, xDer, y)
 
-        // 7. Obs Final
-        y += altoFirmaCaja + 20
-
-        if (y > pageHeight - 100) {
-            pdfDocument.finishPage(page)
-        }
+        // 7. Obs Entrega
+        y += altoFirmaCaja + 15
 
         canvas.drawRect(40f, y, 550f, y+15, paintFondoTitulo)
         canvas.drawRect(40f, y, 550f, y+15, paintBorde)
         canvas.drawText("OBSERVACIONES A LA ENTREGA:", 45f, y+10, paintBold)
         y += 15
-        val altoCajaObs = 50f
+        val altoCajaObs = 45f
         canvas.drawRect(40f, y, 550f, y+altoCajaObs, paintBorde)
 
         val obsPaint = TextPaint(paintTexto)
